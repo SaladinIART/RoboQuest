@@ -1,0 +1,10 @@
+^D:\ONEDRIVE\DOCUMENTS\GITHUB\ROBOQUEST\BUILD\CMAKEFILES\D7B62B522E082535D8078F80EC71A535\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/OneDrive/Documents/GitHub/RoboQuest -BD:/OneDrive/Documents/GitHub/RoboQuest/build --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/OneDrive/Documents/GitHub/RoboQuest/build/RoboQuest.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd

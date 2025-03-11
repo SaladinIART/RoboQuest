@@ -17,7 +17,7 @@ int main() {
     std::cout << "====================================" << std::endl;
     std::cout << "Welcome to RoboQuest - A Robotics Adventure" << std::endl;
     std::cout << "====================================" << std::endl;
-    std::cout << "Version 0.1 - Initial Setup" << std::endl;
+    std::cout << "Version 0.2 - Fallout-Style Dialogue System" << std::endl;
     std::cout << "====================================" << std::endl;
     
     // Create game instance
@@ -32,9 +32,9 @@ int main() {
     // Select difficulty
     int difficultyChoice = 0;
     std::cout << "\nSelect difficulty:" << std::endl;
-    std::cout << "1. Easy (10 minutes, hints provided)" << std::endl;
-    std::cout << "2. Normal (8 minutes)" << std::endl;
-    std::cout << "3. Hard (6 minutes, no hints)" << std::endl;
+    std::cout << "[1] Easy (10 minutes, hints provided)" << std::endl;
+    std::cout << "[2] Normal (8 minutes)" << std::endl;
+    std::cout << "[3] Hard (6 minutes, no hints)" << std::endl;
     std::cout << "Enter your choice (1-3): ";
     
     std::cin >> difficultyChoice;

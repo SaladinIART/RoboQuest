@@ -52,6 +52,7 @@ void Game::initializeLocations() {
     locationDescriptions["1,1"] = "Security Office: Monitors show different areas of the facility. An access card might be useful.";
     locationDescriptions["-1,0"] = "Power Core: The heart of the facility's energy system. It's running on backup power.";
     locationDescriptions["0,-1"] = "Exit Bay: A large door that leads outside. It requires authorization to open.";
+    locationDescriptions["2,0"] = "CI/CD Pipeline Room: A room filled with automated systems. Screens display various build statuses and deployment pipelines. This is where the facility's software is continuously integrated and deployed.";
 }
 
 // Initialize items
@@ -306,6 +307,178 @@ void Game::displayIntroduction() {
         std::cout << "\nHint: Try exploring the facility to find useful items." << std::endl;
         std::cout << "The exit is likely to be south of your starting position." << std::endl;
     }
+}
+// Display available options to the player
+void Game::displayOptions() {
+    std::cout << "\nWhat would you like to do?\n";
+    for (size_t i = 0; i < currentOptions.size(); i++) {
+        std::cout << "[" << (i + 1) << "] " << currentOptions[i] << std::endl;
+    }
+    std::cout << "Enter your choice (1-" << currentOptions.size() << "): ";
+}
+
+// Process the player's option selection
+void Game::processOptionSelection(int choice) {
+    if (choice >= 1 && choice <= static_cast<int>(currentActions.size())) {
+        processInput(currentActions[choice - 1]);
+    } else {
+        std::cout << "Invalid choice. Please try again.\n";
+    }
+}
+
+// Modify the run method to use the new dialogue system
+void Game::run() {
+    displayIntroduction();
+    
+    while (running) {
+        render();
+        
+        // Set up the options based on current location
+        updateAvailableOptions();
+        
+        // Display the options
+        displayOptions();
+        
+        // Get player choice
+        int choice;
+        std::cin >> choice;
+        std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+        
+        // Process the choice
+        processOptionSelection(choice);
+        
+        // Update game state
+        updateGameState();
+        
+        // Check if time has run out
+        if (timeRemaining <= 0) {
+            std::cout << "\nTime has run out! The facility's emergency shutdown protocol has been activated.\n";
+            displayEnding(false);
+            running = false;
+        }
+    }
+}
+
+// Add a new method to update available options based on location
+void Game::updateAvailableOptions() {
+    // Clear previous options
+    currentOptions.clear();
+    currentActions.clear();
+    
+    // Add movement options based on available paths
+    std::string northLocation = getLocationKey(playerX, playerY + 1);
+    std::string southLocation = getLocationKey(playerX, playerY - 1);
+    std::string eastLocation = getLocationKey(playerX + 1, playerY);
+    std::string westLocation = getLocationKey(playerX - 1, playerY);
+    
+    if (locationDescriptions.find(northLocation) != locationDescriptions.end()) {
+        currentOptions.push_back("Go north");
+        currentActions.push_back("north");
+    }
+    
+    if (locationDescriptions.find(southLocation) != locationDescriptions.end()) {
+        currentOptions.push_back("Go south");
+        currentActions.push_back("south");
+    }
+    
+    if (locationDescriptions.find(eastLocation) != locationDescriptions.end()) {
+        currentOptions.push_back("Go east");
+        currentActions.push_back("east");
+    }
+    
+    if (locationDescriptions.find(westLocation) != locationDescriptions.end()) {
+        currentOptions.push_back("Go west");
+        currentActions.push_back("west");
+    }
+    
+    // Add standard options
+    currentOptions.push_back("Look around");
+    currentActions.push_back("look");
+    
+    currentOptions.push_back("Check inventory");
+    currentActions.push_back("inventory");
+    
+    // Add location-specific options
+    // Security Office - Access Card
+    if (playerX == 1 && playerY == 1 && !inventory["access_card"]) {
+        currentOptions.push_back("Take access card");
+        currentActions.push_back("take access_card");
+    }
+    
+    // Power Core - Power Cell
+    if (playerX == -1 && playerY == 0 && !inventory["power_cell"]) {
+        currentOptions.push_back("Take power cell");
+        currentActions.push_back("take power_cell");
+    }
+    
+    // Robotics Lab - Debugging Ability
+    if (playerX == 0 && playerY == 1 && !inventory["debugging_ability"]) {
+        currentOptions.push_back("Take debugging ability");
+        currentActions.push_back("take debugging_ability");
+    }
+    
+    // Exit Bay with Access Card
+    if (playerX == 0 && playerY == -1 && inventory["access_card"]) {
+        currentOptions.push_back("Use access card on exit door");
+        currentActions.push_back("use access_card");
+    }
+    
+    // Server Room with Debugging Ability
+    if (playerX == 1 && playerY == 0 && inventory["debugging_ability"]) {
+        currentOptions.push_back("Use debugging ability on servers");
+        currentActions.push_back("use debugging_ability");
+    }
+    
+    // Power Core with Power Cell
+    if (playerX == -1 && playerY == 0 && inventory["power_cell"]) {
+        currentOptions.push_back("Install power cell");
+        currentActions.push_back("use power_cell");
+    }
+    // CI/CD Pipeline Room - DevOps Challenge
+    if (playerX == 2 && playerY == 0) {
+        currentOptions.push_back("Examine deployment pipeline");
+        currentActions.push_back("examine pipeline");
+        
+        currentOptions.push_back("Check version control system");
+        currentActions.push_back("check version");
+        
+        if (inventory["debugging_ability"]) {
+            currentOptions.push_back("Fix broken build");
+            currentActions.push_back("fix build");
+        }
+    }
+    
+    // Always add help and quit options
+    currentOptions.push_back("Help");
+    currentActions.push_back("help");
+    
+    currentOptions.push_back("Quit game");
+    currentActions.push_back("quit");
+}
+
+void Game::handleExaminePipeline() {
+    std::cout << "You examine the deployment pipeline. It shows a series of stages: Build, Test, Deploy.\n";
+    std::cout << "The pipeline is currently stuck at the Test stage due to failing tests.\n";
+    std::cout << "A successful deployment might help stabilize the facility systems.\n";
+    score += 10;
+}
+
+void Game::handleCheckVersion() {
+    std::cout << "You access the version control system. It shows multiple branches:\n";
+    std::cout << "- main: The production branch (currently deployed)\n";
+    std::cout << "- develop: Development branch with new features\n";
+    std::cout << "- hotfix/emergency-shutdown: A hotfix branch to prevent the shutdown\n";
+    std::cout << "The hotfix branch has changes that could help you, but it hasn't been merged yet.\n";
+    score += 10;
+}
+
+void Game::handleFixBuild() {
+    std::cout << "Using your debugging ability, you analyze the failing tests.\n";
+    std::cout << "You identify the issue: a race condition in the emergency shutdown protocol.\n";
+    std::cout << "You fix the code and commit the changes. The pipeline turns green!\n";
+    std::cout << "The hotfix is automatically deployed, giving you more time to escape.\n";
+    timeRemaining += 120; // Add 2 minutes
+    score += 50;
 }
 
 // Display ending

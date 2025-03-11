@@ -57,6 +57,17 @@ private:
     void displayIntroduction();
     void displayEnding(bool success);
     
+    // For dialogue options
+    std::vector<std::string> currentOptions;
+    std::vector<std::string> currentActions;
+    void displayOptions();
+    void processOptionSelection(int choice);
+
+    // DevOps command handlers
+    void handleExaminePipeline();
+    void handleCheckVersion();
+    void handleFixBuild();
+    
 public:
     // Constructor
     Game();
