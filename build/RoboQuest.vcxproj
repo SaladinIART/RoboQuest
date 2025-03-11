@@ -333,6 +333,7 @@ if %errorlevel% neq 0 goto :VCEnd</Command>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="D:\OneDrive\Documents\GitHub\RoboQuest\src\main.cpp" />
+    <ClCompile Include="D:\OneDrive\Documents\GitHub\RoboQuest\src\game.cpp" />
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
