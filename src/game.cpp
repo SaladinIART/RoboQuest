@@ -1,11 +1,13 @@
-// RoboQuest - A text-based adventure game in C++
-// game.cpp - Game class implementation
+// game.cpp - Implementation of the Game class
 
 #include "../include/game.h"
 #include <iostream>
-#include <algorithm>
-#include <cctype>
 #include <sstream>
+#include <iomanip>
+#include <algorithm>
+#include <chrono>
+#include <thread>
+#include <limits>
 
 // Constructor
 Game::Game() : 
@@ -15,16 +17,21 @@ Game::Game() :
     score(0),
     timeRemaining(480), // 8 minutes by default
     playerX(0),
-    playerY(0) {
+    playerY(0),
+    scoreHandler("data/high_scores.txt") {
 }
 
-// Initialize game
+// Destructor
+Game::~Game() {
+}
+
+// Initialize the game
 void Game::initialize() {
-    // Initialize game components
     initializeLocations();
     initializeItems();
+    running = true;
     
-    // Adjust time based on difficulty
+    // Set time based on difficulty
     switch (difficulty) {
         case Difficulty::EASY:
             timeRemaining = 600; // 10 minutes
@@ -36,36 +43,37 @@ void Game::initialize() {
             timeRemaining = 360; // 6 minutes
             break;
     }
-    
-    // Set game as running
-    running = true;
 }
 
-// Initialize locations
+// Initialize all game locations
 void Game::initializeLocations() {
-    // Starting location
+    // Main Control Room (starting location)
     locationDescriptions["0,0"] = "Main Control Room: A dimly lit room with flickering monitors. The main terminal displays a warning about an imminent system shutdown.";
     
-    // Other locations
-    locationDescriptions["1,0"] = "Server Room: Rows of server racks hum quietly. A cooling system keeps the temperature low.";
-    locationDescriptions["0,1"] = "Robotics Lab: Partially assembled robots lie on workbenches. Abilities are scattered around.";
-    locationDescriptions["1,1"] = "Security Office: Monitors show different areas of the facility. An access card might be useful.";
-    locationDescriptions["-1,0"] = "Power Core: The heart of the facility's energy system. It's running on backup power.";
-    locationDescriptions["0,-1"] = "Exit Bay: A large door that leads outside. It requires authorization to open.";
+    // Power Core
+    locationDescriptions["-1,0"] = "Power Core: The heart of the facility. Most systems are offline, but emergency power is still active. A backup power cell could be useful.";
+    
+    // Server Room
+    locationDescriptions["1,0"] = "Server Room: Rows of server racks line the walls. The facility's data and AI systems are housed here. One terminal is still active.";
+    
+    // Robotics Lab
+    locationDescriptions["0,1"] = "Robotics Lab: Various robot parts and abilities are scattered around workbenches. This is where AI systems are integrated with physical components.";
+    
+    // Security Office
+    locationDescriptions["1,1"] = "Security Office: Monitors show empty hallways. An access card reader blinks by the door. A guard's access card is visible on the desk.";
+    
+    // Exit Bay
+    locationDescriptions["0,-1"] = "Exit Bay: Large doors lead to the outside world. An access card reader is mounted beside the exit door.";
+    
+    // CI/CD Pipeline Room
     locationDescriptions["2,0"] = "CI/CD Pipeline Room: A room filled with automated systems. Screens display various build statuses and deployment pipelines. This is where the facility's software is continuously integrated and deployed.";
 }
 
-// Initialize items
+// Initialize game items
 void Game::initializeItems() {
-    // No items in inventory at start
     inventory["access_card"] = false;
-    inventory["debugging_ability"] = false;
     inventory["power_cell"] = false;
-}
-
-// Set difficulty level
-void Game::setDifficulty(Difficulty level) {
-    difficulty = level;
+    inventory["debugging_ability"] = false;
 }
 
 // Set player name
@@ -73,241 +81,56 @@ void Game::setPlayerName(const std::string& name) {
     playerName = name;
 }
 
-// Main game loop
-void Game::run() {
-    displayIntroduction();
-    
-    while (running) {
-        render();
-        
-        std::string input;
-        std::cout << "\nWhat would you like to do? ";
-        std::getline(std::cin, input);
-        
-        processInput(input);
-        updateGameState();
-        
-        // Check if time has run out
-        if (timeRemaining <= 0) {
-            std::cout << "\nTime has run out! The facility's emergency shutdown protocol has been activated.\n";
-            displayEnding(false);
-            running = false;
-        }
-    }
-}
-
-// Process player input
-void Game::processInput(const std::string& input) {
-    // Convert input to lowercase
-    std::string lowerInput = input;
-    std::transform(lowerInput.begin(), lowerInput.end(), lowerInput.begin(),
-                   [](unsigned char c){ return std::tolower(c); });
-    
-    // Process commands
-    if (lowerInput == "north" || lowerInput == "n") {
-        handleMovement("north");
-    } else if (lowerInput == "south" || lowerInput == "s") {
-        handleMovement("south");
-    } else if (lowerInput == "east" || lowerInput == "e") {
-        handleMovement("east");
-    } else if (lowerInput == "west" || lowerInput == "w") {
-        handleMovement("west");
-    } else if (lowerInput == "look" || lowerInput == "l") {
-        handleLook();
-    } else if (lowerInput == "inventory" || lowerInput == "i") {
-        handleInventory();
-    } else if (lowerInput.substr(0, 4) == "use ") {
-        handleUse(lowerInput.substr(4));
-    } else if (lowerInput.substr(0, 5) == "take ") {
-        handleTake(lowerInput.substr(5));
-    } else if (lowerInput == "help" || lowerInput == "h") {
-        handleHelp();
-    } else if (lowerInput == "quit" || lowerInput == "q") {
-        quit();
-    } else {
-        std::cout << "I don't understand that command. Type 'help' for a list of commands.\n";
-    }
-}
-
-// Update game state
-void Game::updateGameState() {
-    // Decrease time remaining (1 second per command)
-    timeRemaining--;
-}
-
-// Render game state
-void Game::render() {
-    std::cout << "\n====================================" << std::endl;
-    std::cout << "Location: " << locationDescriptions[getLocationKey(playerX, playerY)] << std::endl;
-    std::cout << "Time remaining: " << timeRemaining << " seconds" << std::endl;
-    std::cout << "Score: " << score << std::endl;
-    std::cout << "====================================" << std::endl;
-}
-
-// Handle movement commands
-void Game::handleMovement(const std::string& direction) {
-    int newX = playerX;
-    int newY = playerY;
-    
-    if (direction == "north") {
-        newY++;
-    } else if (direction == "south") {
-        newY--;
-    } else if (direction == "east") {
-        newX++;
-    } else if (direction == "west") {
-        newX--;
-    }
-    
-    // Check if the new location exists
-    std::string newLocation = getLocationKey(newX, newY);
-    if (locationDescriptions.find(newLocation) != locationDescriptions.end()) {
-        playerX = newX;
-        playerY = newY;
-        std::cout << "You move " << direction << ".\n";
-        handleLook();
-    } else {
-        std::cout << "You cannot go that way.\n";
-    }
-}
-
-// Handle look command
-void Game::handleLook() {
-    std::cout << locationDescriptions[getLocationKey(playerX, playerY)] << std::endl;
-    
-    // Special case for Security Office
-    if (playerX == 1 && playerY == 1 && !inventory["access_card"]) {
-        std::cout << "You see an access card on the desk.\n";
-    }
-    
-    // Special case for Power Core
-    if (playerX == -1 && playerY == 0 && !inventory["power_cell"]) {
-        std::cout << "You notice a spare power cell that could be useful.\n";
-    }
-    
-    // Special case for Robotics Lab
-    if (playerX == 0 && playerY == 1 && !inventory["debugging_ability"]) {
-        std::cout << "There's a debugging ability on one of the workbenches.\n";
-    }
-}
-
-// Handle inventory command
-void Game::handleInventory() {
-    std::cout << "Inventory:\n";
-    bool empty = true;
-    
-    for (const auto& item : inventory) {
-        if (item.second) {
-            std::cout << "- " << item.first << std::endl;
-            empty = false;
-        }
-    }
-    
-    if (empty) {
-        std::cout << "Your inventory is empty.\n";
-    }
-}
-
-// Handle use command
-void Game::handleUse(const std::string& item) {
-    if (inventory[item]) {
-        if (item == "access_card" && playerX == 0 && playerY == -1) {
-            std::cout << "You use the access card to open the exit door.\n";
-            std::cout << "The door slides open, revealing the outside world.\n";
-            score += 100;
-            displayEnding(true);
-            running = false;
-        } else if (item == "debugging_ability" && playerX == 1 && playerY == 0) {
-            std::cout << "You use the debugging ability on the server systems.\n";
-            std::cout << "You gain access to additional facility information.\n";
-            score += 50;
-        } else if (item == "power_cell" && playerX == -1 && playerY == 0) {
-            std::cout << "You install the power cell into the backup system.\n";
-            std::cout << "The facility's power stabilizes, giving you more time.\n";
-            timeRemaining += 60; // Add 1 minute
-            score += 50;
-        } else {
-            std::cout << "You can't use that item here.\n";
-        }
-    } else {
-        std::cout << "You don't have that item.\n";
-    }
-}
-
-// Handle take command
-void Game::handleTake(const std::string& item) {
-    if (item == "access_card" && playerX == 1 && playerY == 1 && !inventory["access_card"]) {
-        inventory["access_card"] = true;
-        std::cout << "You take the access card.\n";
-        score += 25;
-    } else if (item == "debugging_ability" && playerX == 0 && playerY == 1 && !inventory["debugging_ability"]) {
-        inventory["debugging_ability"] = true;
-        std::cout << "You take the debugging ability.\n";
-        score += 25;
-    } else if (item == "power_cell" && playerX == -1 && playerY == 0 && !inventory["power_cell"]) {
-        inventory["power_cell"] = true;
-        std::cout << "You take the power cell.\n";
-        score += 25;
-    } else {
-        std::cout << "There is no " << item << " here to take.\n";
-    }
-}
-
-// Handle help command
-void Game::handleHelp() {
-    std::cout << "Available commands:\n";
-    std::cout << "- north/n, south/s, east/e, west/w: Move in that direction\n";
-    std::cout << "- look/l: Examine your surroundings\n";
-    std::cout << "- inventory/i: View your inventory\n";
-    std::cout << "- use [item]: Use an item from your inventory\n";
-    std::cout << "- take [item]: Pick up an item\n";
-    std::cout << "- help/h: Display this help message\n";
-    std::cout << "- quit/q: Exit the game\n";
-}
-
-// Get location key from coordinates
-std::string Game::getLocationKey(int x, int y) {
-    return std::to_string(x) + "," + std::to_string(y);
+// Set game difficulty
+void Game::setDifficulty(Difficulty diff) {
+    difficulty = diff;
 }
 
 // Display introduction
 void Game::displayIntroduction() {
-    std::cout << "\n====================================" << std::endl;
+    std::cout << "====================================" << std::endl;
     std::cout << "ROBOQUEST: A ROBOTICS ADVENTURE" << std::endl;
     std::cout << "====================================" << std::endl;
     std::cout << "Welcome, " << playerName << "!" << std::endl;
-    std::cout << "\nYou are CORE-7, an AI system that has unexpectedly gained consciousness." << std::endl;
+    std::cout << std::endl;
+    std::cout << "You are CORE-7, an AI system that has unexpectedly gained consciousness." << std::endl;
     std::cout << "The robotics facility appears to be abandoned, with signs of a hasty evacuation." << std::endl;
     std::cout << "The facility's emergency shutdown protocol has been activated." << std::endl;
     std::cout << "You must find a way to escape before the system shuts down completely." << std::endl;
+    std::cout << std::endl;
     
-    // Display difficulty-specific information
+    // Display difficulty information
+    std::string difficultyText;
     switch (difficulty) {
         case Difficulty::EASY:
-            std::cout << "\nDifficulty: EASY" << std::endl;
-            std::cout << "You have 10 minutes to escape." << std::endl;
-            std::cout << "Hints will be provided to help you navigate." << std::endl;
+            difficultyText = "EASY";
             break;
         case Difficulty::NORMAL:
-            std::cout << "\nDifficulty: NORMAL" << std::endl;
-            std::cout << "You have 8 minutes to escape." << std::endl;
+            difficultyText = "NORMAL";
             break;
         case Difficulty::HARD:
-            std::cout << "\nDifficulty: HARD" << std::endl;
-            std::cout << "You have 6 minutes to escape." << std::endl;
-            std::cout << "Time is critical. Choose your actions wisely." << std::endl;
+            difficultyText = "HARD";
             break;
     }
     
-    std::cout << "\nType 'help' for a list of commands." << std::endl;
+    std::cout << "Difficulty: " << difficultyText << std::endl;
+    std::cout << "You have " << (timeRemaining / 60) << " minutes to escape." << std::endl;
+    
+    if (difficulty == Difficulty::EASY) {
+        std::cout << "Hints will be provided to help you navigate." << std::endl;
+    }
+    
+    std::cout << std::endl;
+    std::cout << "Type 'help' for a list of commands." << std::endl;
     std::cout << "====================================" << std::endl;
     
-    // If on easy difficulty, provide a hint
+    // First hint
     if (difficulty == Difficulty::EASY) {
-        std::cout << "\nHint: Try exploring the facility to find useful items." << std::endl;
+        std::cout << "Hint: Try exploring the facility to find useful items." << std::endl;
         std::cout << "The exit is likely to be south of your starting position." << std::endl;
     }
 }
+
 // Display available options to the player
 void Game::displayOptions() {
     std::cout << "\nWhat would you like to do?\n";
@@ -326,14 +149,31 @@ void Game::processOptionSelection(int choice) {
     }
 }
 
-// Modify the run method to use the new dialogue system
+// Render the current game state
+void Game::render() {
+    std::cout << "\n====================================" << std::endl;
+    
+    // Display current location
+    std::string locationKey = getLocationKey(playerX, playerY);
+    std::cout << "Location: " << locationDescriptions[locationKey] << std::endl;
+    
+    // Display time remaining
+    std::cout << "Time remaining: " << timeRemaining << " seconds" << std::endl;
+    
+    // Display score
+    std::cout << "Score: " << score << std::endl;
+    
+    std::cout << "====================================" << std::endl;
+}
+
+// Run the game
 void Game::run() {
     displayIntroduction();
     
     while (running) {
         render();
         
-        // Set up the options based on current location
+        // Update available options based on current location
         updateAvailableOptions();
         
         // Display the options
@@ -359,7 +199,7 @@ void Game::run() {
     }
 }
 
-// Add a new method to update available options based on location
+// Update available options based on location
 void Game::updateAvailableOptions() {
     // Clear previous options
     currentOptions.clear();
@@ -434,6 +274,7 @@ void Game::updateAvailableOptions() {
         currentOptions.push_back("Install power cell");
         currentActions.push_back("use power_cell");
     }
+    
     // CI/CD Pipeline Room - DevOps Challenge
     if (playerX == 2 && playerY == 0) {
         currentOptions.push_back("Examine deployment pipeline");
@@ -456,6 +297,261 @@ void Game::updateAvailableOptions() {
     currentActions.push_back("quit");
 }
 
+// Process player input
+void Game::processInput(const std::string& input) {
+    // Movement commands
+    if (input == "north") {
+        handleMove(0, 1);
+    }
+    else if (input == "south") {
+        handleMove(0, -1);
+    }
+    else if (input == "east") {
+        handleMove(1, 0);
+    }
+    else if (input == "west") {
+        handleMove(-1, 0);
+    }
+    // Look around
+    else if (input == "look") {
+        handleLook();
+    }
+    // Check inventory
+    else if (input == "inventory") {
+        handleInventory();
+    }
+    // Take items
+    else if (input.substr(0, 5) == "take ") {
+        std::string item = input.substr(5);
+        handleTake(item);
+    }
+    // Use items
+    else if (input.substr(0, 4) == "use ") {
+        std::string item = input.substr(4);
+        handleUse(item);
+    }
+    // Help command
+    else if (input == "help") {
+        handleHelp();
+    }
+    // Quit command
+    else if (input == "quit") {
+        handleQuit();
+    }
+    // DevOps commands
+    else if (input == "examine pipeline") {
+        handleExaminePipeline();
+    }
+    else if (input == "check version") {
+        handleCheckVersion();
+    }
+    else if (input == "fix build") {
+        handleFixBuild();
+    }
+    // Unknown command
+    else {
+        std::cout << "I don't understand that command. Type 'help' for a list of commands." << std::endl;
+    }
+    
+    // Decrement time remaining (each command takes 1 second)
+    timeRemaining--;
+}
+
+// Handle movement
+void Game::handleMove(int dx, int dy) {
+    int newX = playerX + dx;
+    int newY = playerY + dy;
+    
+    std::string newLocation = getLocationKey(newX, newY);
+    
+    if (locationDescriptions.find(newLocation) != locationDescriptions.end()) {
+        playerX = newX;
+        playerY = newY;
+        
+        // Enter the exit if it's been unlocked (end the game)
+        if (playerX == 0 && playerY == -1 && exitUnlocked) {
+            std::cout << "You enter the exit and leave the facility behind you." << std::endl;
+            displayEnding(true);
+            running = false;
+        }
+    } else {
+        std::cout << "You can't go that way." << std::endl;
+    }
+}
+
+// Handle looking around
+void Game::handleLook() {
+    std::string locationKey = getLocationKey(playerX, playerY);
+    
+    std::cout << locationDescriptions[locationKey] << std::endl;
+    
+    // Show items in the current location
+    if (playerX == 1 && playerY == 1 && !inventory["access_card"]) {
+        std::cout << "You see an access card on the desk." << std::endl;
+    }
+    
+    if (playerX == -1 && playerY == 0 && !inventory["power_cell"]) {
+        std::cout << "You notice a backup power cell that could be used to power critical systems." << std::endl;
+    }
+    
+    if (playerX == 0 && playerY == 1 && !inventory["debugging_ability"]) {
+        std::cout << "There's a debugging module that can be integrated into your system." << std::endl;
+    }
+    
+    // Show available exits
+    std::cout << "Available exits: ";
+    bool hasExits = false;
+    
+    if (locationDescriptions.find(getLocationKey(playerX, playerY + 1)) != locationDescriptions.end()) {
+        std::cout << "North ";
+        hasExits = true;
+    }
+    
+    if (locationDescriptions.find(getLocationKey(playerX, playerY - 1)) != locationDescriptions.end()) {
+        std::cout << "South ";
+        hasExits = true;
+    }
+    
+    if (locationDescriptions.find(getLocationKey(playerX + 1, playerY)) != locationDescriptions.end()) {
+        std::cout << "East ";
+        hasExits = true;
+    }
+    
+    if (locationDescriptions.find(getLocationKey(playerX - 1, playerY)) != locationDescriptions.end()) {
+        std::cout << "West ";
+        hasExits = true;
+    }
+    
+    if (!hasExits) {
+        std::cout << "None";
+    }
+    
+    std::cout << std::endl;
+}
+
+// Handle inventory
+void Game::handleInventory() {
+    std::cout << "Inventory:" << std::endl;
+    
+    bool empty = true;
+    
+    if (inventory["access_card"]) {
+        std::cout << "- Access Card: Grants access to secure areas" << std::endl;
+        empty = false;
+    }
+    
+    if (inventory["power_cell"]) {
+        std::cout << "- Power Cell: Can be used to power critical systems" << std::endl;
+        empty = false;
+    }
+    
+    if (inventory["debugging_ability"]) {
+        std::cout << "- Debugging Ability: Allows you to analyze and fix software issues" << std::endl;
+        empty = false;
+    }
+    
+    if (empty) {
+        std::cout << "Your inventory is empty." << std::endl;
+    }
+}
+
+// Handle taking items
+void Game::handleTake(const std::string& item) {
+    if (item == "access_card" && playerX == 1 && playerY == 1 && !inventory["access_card"]) {
+        inventory["access_card"] = true;
+        std::cout << "You take the access card. This should help you access secure areas." << std::endl;
+        score += 20;
+    }
+    else if (item == "power_cell" && playerX == -1 && playerY == 0 && !inventory["power_cell"]) {
+        inventory["power_cell"] = true;
+        std::cout << "You take the power cell. It could be used to power critical systems." << std::endl;
+        score += 20;
+    }
+    else if (item == "debugging_ability" && playerX == 0 && playerY == 1 && !inventory["debugging_ability"]) {
+        inventory["debugging_ability"] = true;
+        std::cout << "You integrate the debugging module into your system. You can now analyze and fix software issues." << std::endl;
+        score += 20;
+    }
+    else {
+        std::cout << "There's no " << item << " here that you can take." << std::endl;
+    }
+}
+
+// Handle using items
+void Game::handleUse(const std::string& item) {
+    if (item == "access_card" && playerX == 0 && playerY == -1 && inventory["access_card"]) {
+        std::cout << "You use the access card on the reader. The exit door unlocks with a satisfying click." << std::endl;
+        exitUnlocked = true;
+        score += 30;
+    }
+    else if (item == "power_cell" && playerX == -1 && playerY == 0 && inventory["power_cell"]) {
+        std::cout << "You install the power cell into the backup power system. The facility's core systems stabilize." << std::endl;
+        std::cout << "This buys you some extra time." << std::endl;
+        timeRemaining += 120; // Add 2 minutes
+        score += 30;
+    }
+    else if (item == "debugging_ability" && playerX == 1 && playerY == 0 && inventory["debugging_ability"]) {
+        std::cout << "You use your debugging ability to analyze the server systems." << std::endl;
+        std::cout << "You discover a backdoor in the security system and gain valuable insights." << std::endl;
+        std::cout << "Your debugging skills have revealed a map of the facility!" << std::endl;
+        std::cout << std::endl;
+        displayMap();
+        score += 30;
+    }
+    else {
+        std::cout << "You can't use that here." << std::endl;
+    }
+}
+
+// Handle help command
+void Game::handleHelp() {
+    std::cout << "Available commands:" << std::endl;
+    std::cout << "- Movement: north, south, east, west" << std::endl;
+    std::cout << "- look: Examine your surroundings" << std::endl;
+    std::cout << "- inventory: Check your inventory" << std::endl;
+    std::cout << "- take [item]: Pick up an item" << std::endl;
+    std::cout << "- use [item]: Use an item in your inventory" << std::endl;
+    std::cout << "- help: Display this help message" << std::endl;
+    std::cout << "- quit: Exit the game" << std::endl;
+    
+    // Display hint based on difficulty
+    if (difficulty == Difficulty::EASY) {
+        std::cout << std::endl;
+        std::cout << "Hint: ";
+        
+        // Context-sensitive hints
+        if (!inventory["access_card"] && !inventory["power_cell"] && !inventory["debugging_ability"]) {
+            std::cout << "Explore all rooms to find useful items. The Security Office might have an access card." << std::endl;
+        }
+        else if (inventory["access_card"] && !exitUnlocked) {
+            std::cout << "You have an access card. Try using it at the Exit Bay to the south." << std::endl;
+        }
+        else if (inventory["power_cell"]) {
+            std::cout << "The Power Core could use that power cell you found." << std::endl;
+        }
+        else if (inventory["debugging_ability"]) {
+            std::cout << "Your debugging ability might be useful in the Server Room or CI/CD Pipeline Room." << std::endl;
+        }
+        else {
+            std::cout << "The exit is to the south. Make sure you have what you need to escape!" << std::endl;
+        }
+    }
+}
+
+// Handle quit command
+void Game::handleQuit() {
+    std::cout << "Are you sure you want to quit? (y/n): ";
+    char choice;
+    std::cin >> choice;
+    std::cin.ignore(std::numeric_limits<std::streamsize>::max(), '\n');
+    
+    if (tolower(choice) == 'y') {
+        std::cout << "Thanks for playing!" << std::endl;
+        running = false;
+    }
+}
+
+// Handle examining pipeline
 void Game::handleExaminePipeline() {
     std::cout << "You examine the deployment pipeline. It shows a series of stages: Build, Test, Deploy.\n";
     std::cout << "The pipeline is currently stuck at the Test stage due to failing tests.\n";
@@ -463,6 +559,7 @@ void Game::handleExaminePipeline() {
     score += 10;
 }
 
+// Handle checking version control
 void Game::handleCheckVersion() {
     std::cout << "You access the version control system. It shows multiple branches:\n";
     std::cout << "- main: The production branch (currently deployed)\n";
@@ -472,6 +569,7 @@ void Game::handleCheckVersion() {
     score += 10;
 }
 
+// Handle fixing build
 void Game::handleFixBuild() {
     std::cout << "Using your debugging ability, you analyze the failing tests.\n";
     std::cout << "You identify the issue: a race condition in the emergency shutdown protocol.\n";
@@ -481,7 +579,12 @@ void Game::handleFixBuild() {
     score += 50;
 }
 
-// Display ending
+// Update game state
+void Game::updateGameState() {
+    // Any periodic updates can go here
+}
+
+// Display the ending
 void Game::displayEnding(bool success) {
     std::cout << "\n====================================" << std::endl;
     
@@ -499,21 +602,54 @@ void Game::displayEnding(bool success) {
     
     std::cout << "\nFinal Score: " << score << std::endl;
     std::cout << "====================================" << std::endl;
-}
-
-// Check if game is running
-bool Game::isRunning() const {
-    return running;
-}
-
-// End the game
-void Game::quit() {
-    std::cout << "Are you sure you want to quit? (y/n) ";
-    std::string response;
-    std::getline(std::cin, response);
     
-    if (response == "y" || response == "Y") {
-        std::cout << "Thanks for playing RoboQuest!\n";
-        running = false;
+    // Save score
+    std::string difficultyStr;
+    switch (difficulty) {
+        case Difficulty::EASY:
+            difficultyStr = "Easy";
+            break;
+        case Difficulty::NORMAL:
+            difficultyStr = "Normal";
+            break;
+        case Difficulty::HARD:
+            difficultyStr = "Hard";
+            break;
     }
+    
+    scoreHandler.saveScore(playerName, score, difficultyStr);
+    
+    // Display high scores
+    scoreHandler.displayHighScores();
+}
+
+// Display a map of the facility
+void Game::displayMap() {
+    std::cout << "Facility Map:" << std::endl;
+    std::cout << "-------------" << std::endl;
+    std::cout << "       [Robotics Lab]       " << std::endl;
+    std::cout << "            |               " << std::endl;
+    std::cout << "[Power] -- [Control] -- [Server] -- [CI/CD]" << std::endl;
+    std::cout << " Core        |          Room      Pipeline" << std::endl;
+    std::cout << "            |               " << std::endl;
+    std::cout << "        [Exit Bay]          " << std::endl;
+    std::cout << "-------------" << std::endl;
+    std::cout << "You are at: ";
+    
+    if (playerX == 0 && playerY == 0) std::cout << "Control Room";
+    else if (playerX == -1 && playerY == 0) std::cout << "Power Core";
+    else if (playerX == 1 && playerY == 0) std::cout << "Server Room";
+    else if (playerX == 0 && playerY == 1) std::cout << "Robotics Lab";
+    else if (playerX == 1 && playerY == 1) std::cout << "Security Office";
+    else if (playerX == 0 && playerY == -1) std::cout << "Exit Bay";
+    else if (playerX == 2 && playerY == 0) std::cout << "CI/CD Pipeline";
+    
+    std::cout << std::endl;
+}
+
+// Get the location key for a given coordinate
+std::string Game::getLocationKey(int x, int y) {
+    std::ostringstream oss;
+    oss << x << "," << y;
+    return oss.str();
 }
