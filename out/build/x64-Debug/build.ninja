@@ -57,6 +57,14 @@ build CMakeFiles\RoboQuest.dir\src\main.cpp.obj: CXX_COMPILER__RoboQuest_unscann
   TARGET_COMPILE_PDB = CMakeFiles\RoboQuest.dir\
   TARGET_PDB = RoboQuest.pdb
 
+build CMakeFiles\RoboQuest.dir\src\game.cpp.obj: CXX_COMPILER__RoboQuest_unscanned_Debug D$:\OneDrive\Documents\GitHub\RoboQuest\src\game.cpp || cmake_object_order_depends_target_RoboQuest
+  FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1 -std:c++17
+  INCLUDES = -ID:\OneDrive\Documents\GitHub\RoboQuest\include
+  OBJECT_DIR = CMakeFiles\RoboQuest.dir
+  OBJECT_FILE_DIR = CMakeFiles\RoboQuest.dir\src
+  TARGET_COMPILE_PDB = CMakeFiles\RoboQuest.dir\
+  TARGET_PDB = RoboQuest.pdb
+
 
 # =============================================================================
 # Link build statements for EXECUTABLE target RoboQuest
@@ -65,7 +73,7 @@ build CMakeFiles\RoboQuest.dir\src\main.cpp.obj: CXX_COMPILER__RoboQuest_unscann
 #############################################
 # Link the executable RoboQuest.exe
 
-build RoboQuest.exe: CXX_EXECUTABLE_LINKER__RoboQuest_Debug CMakeFiles\RoboQuest.dir\src\main.cpp.obj
+build RoboQuest.exe: CXX_EXECUTABLE_LINKER__RoboQuest_Debug CMakeFiles\RoboQuest.dir\src\main.cpp.obj CMakeFiles\RoboQuest.dir\src\game.cpp.obj
   FLAGS = /DWIN32 /D_WINDOWS /W3 /GR /EHsc /MDd /Zi /Ob0 /Od /RTC1
   LINK_FLAGS = /machine:x64 /debug /INCREMENTAL /subsystem:console
   LINK_LIBRARIES = kernel32.lib user32.lib gdi32.lib winspool.lib shell32.lib ole32.lib oleaut32.lib uuid.lib comdlg32.lib advapi32.lib
